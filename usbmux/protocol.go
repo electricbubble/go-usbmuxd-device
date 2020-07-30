@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"howett.net/plist"
 	"log"
 	"net"
+	"runtime"
 	"strconv"
+
+	"howett.net/plist"
 )
 
 type PacketType uint32
@@ -93,12 +95,18 @@ func NewProtocol(frame interface{}, protoVersion PacketProtocol, protoType Packe
 		tag:          1,
 	}
 
-	if conn, err := net.Dial("unix", "/var/run/usbmuxd"); err != nil {
-		return nil, err
+	var conn net.Conn
+	var err error
+	if runtime.GOOS == "windows" {
+		conn, err = net.Dial("tcp", "127.0.0.1:27015")
 	} else {
-		p.sock = conn
-		return p, nil
+		conn, err = net.Dial("unix", "/var/run/usbmuxd")
 	}
+	if err != nil {
+		return nil, err
+	}
+	p.sock = conn
+	return p, nil
 }
 
 func (p *Protocol) Conn() net.Conn {
