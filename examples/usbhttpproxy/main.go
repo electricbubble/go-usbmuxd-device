@@ -2,6 +2,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"flag"
 	"log"
 	"net/http"
 
@@ -9,12 +11,20 @@ import (
 )
 
 func main() {
+	addr := flag.String("addr", ":8040", "proxy listen address")
+	auth := flag.String("auth", "", "use : to separate user and password, eg: susan:kitty")
+	flag.Parse()
+
 	hproxy, err := go_usbmuxd_device.NewUSBHTTPProxy(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 	hproxy.Debug = true
-	http.ListenAndServe(":8040", hproxy)
+
+	if *auth != "" {
+		hproxy.Credential = base64.StdEncoding.EncodeToString([]byte(*auth))
+	}
+	log.Fatal(http.ListenAndServe(*addr, hproxy))
 
 	// Usage command line
 	//
