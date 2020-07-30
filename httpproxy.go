@@ -17,9 +17,10 @@ type HTTPProxy struct {
 	// If nil, http.DefaultTransport is used.
 	Transport  http.RoundTripper
 	Credential string
+	Debug      bool
 }
 
-// NewProxy returns a new HTTPProxy object
+// newHTTPProxy returns a new HTTPProxy object
 func newHTTPProxy() *HTTPProxy {
 	return &HTTPProxy{}
 }
@@ -46,7 +47,6 @@ func NewUSBHTTPProxy(usbhub *USBHub) (*HTTPProxy, error) {
 	devIDs := make(map[string]int)
 	go func() {
 		for dev := range devCh {
-			log.Println("Device:", dev)
 			devIDs[dev.SerialNumber] = dev.DeviceID
 		}
 	}()
@@ -147,11 +147,9 @@ func (p *HTTPProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if !p.handleProxyAuth(rw, req) {
 		return
 	}
-	fmt.Printf("Received request %s %s %s\n",
-		req.Method,
-		req.Host,
-		req.RemoteAddr,
-	)
+	if p.Debug {
+		log.Printf("%s %s", req.Method, req.RequestURI)
+	}
 
 	if req.Method == "CONNECT" {
 		p.handleConnect(rw, req)

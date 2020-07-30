@@ -13,6 +13,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	hproxy.Debug = true
 	http.ListenAndServe(":8040", hproxy)
 
 	// Usage command line
