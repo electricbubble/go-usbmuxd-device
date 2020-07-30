@@ -3,9 +3,10 @@ package go_usbmuxd_device
 import (
 	"errors"
 	"fmt"
+	"net"
+
 	"github.com/electricbubble/go-usbmuxd-device/usbmux"
 	"howett.net/plist"
-	"net"
 )
 
 var ErrNoFindUSBDevice = errors.New("no find match device")
@@ -66,6 +67,46 @@ func (c *USBHub) DeviceList() (usbDevices []USBDevice, err error) {
 	}
 
 	return
+}
+
+func (c *USBHub) deviceListenAttached() (C chan USBDevice, err error) {
+	var proto *usbmux.Protocol
+	if proto, err = usbmux.NewProtocol(
+		usbmux.NewDefaultRequestFrame(usbmux.MessageTypeListen),
+		usbmux.PacketProtocolPlist, usbmux.PacketTypePlistPayload); err != nil {
+		return nil, err
+	}
+	if err = proto.SendPacket(); err != nil {
+		return nil, err
+	}
+
+	C = make(chan USBDevice, 0)
+	go func() {
+		defer close(C)
+		for {
+			var respPacket *usbmux.ResponsePacket
+			if respPacket, err = proto.RecvPacket(); err != nil {
+				break
+			}
+
+			var devInfo usbmux.DeviceResponseFrame
+			if _, err = plist.Unmarshal(respPacket.Packet, &devInfo); err != nil {
+				break
+			}
+			if devInfo.MessageType != string(usbmux.MessageTypeDeviceAdd) {
+				continue
+			}
+			var dev USBDevice
+			dev.DeviceID = devInfo.Properties.DeviceID
+			dev.LocationID = devInfo.Properties.LocationID
+			dev.ProductID = devInfo.Properties.ProductID
+			dev.SerialNumber = devInfo.Properties.SerialNumber
+			dev.ConnectionSpeed = devInfo.Properties.ConnectionSpeed
+			dev.ConnectionType = devInfo.Properties.ConnectionType
+			C <- dev
+		}
+	}()
+	return C, nil
 }
 
 func (c *USBHub) CreateConnect(devID int, port int) (conn net.Conn, err error) {
